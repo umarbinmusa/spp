@@ -1,0 +1,23 @@
+const API_ERROR_CODES = {
+  INVALID_API_KEY: "INVALID_API_KEY",
+  API_ACCESS_SUSPENDED: "API_ACCESS_SUSPENDED",
+  API_ACCESS_REVOKED: "API_ACCESS_REVOKED",
+  INSUFFICIENT_BALANCE: "INSUFFICIENT_BALANCE",
+  INVALID_REQUEST: "INVALID_REQUEST",
+  INVALID_NETWORK: "INVALID_NETWORK",
+  INVALID_AMOUNT: "INVALID_AMOUNT",
+  SERVICE_DISABLED: "SERVICE_DISABLED",
+  PLAN_NOT_FOUND: "PLAN_NOT_FOUND",
+  DUPLICATE_REQUEST: "DUPLICATE_REQUEST",
+  TRANSACTION_NOT_FOUND: "TRANSACTION_NOT_FOUND",
+  RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
+  SUPPLIER_ERROR: "SUPPLIER_ERROR",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
+};
+
+// Every /api/v2 error follows the same predictable envelope described in the spec.
+const sendApiError = (res, httpStatus, code, message, extra = {}) => {
+  return res.status(httpStatus).json({ success: false, code, message, ...extra });
+};
+
+module.exports = { API_ERROR_CODES, sendApiError };

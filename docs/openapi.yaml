@@ -1,0 +1,515 @@
+openapi: 3.0.3
+info:
+  title: Assalam Telecom API
+  version: "2.0"
+  description: |
+    Public API for external developers to purchase airtime, data, and
+    electricity, and to check transaction status, directly from your own
+    website, mobile app, POS system, or software.
+
+    ## Getting an API key
+    Ask an Assalam Telecom administrator to convert your account into an
+    API User. You'll be issued an **API Key** and **API Secret** once —
+    save them immediately, as they cannot be retrieved again (only
+    regenerated). You'll need to fund your wallet before making purchases;
+    every request is billed against it at the price assigned to your
+    account.
+
+    ## Idempotency
+    Every purchase endpoint requires a `requestId` you generate yourself.
+    Sending the same `requestId` again (e.g. after a timeout) never
+    creates a second transaction or charges your wallet twice — it simply
+    returns the original transaction.
+  contact:
+    name: Assalam Telecom
+externalDocs:
+  description: Full written guide (pricing tiers, webhooks, error codes)
+  url: /api-docs/API_MANAGEMENT.md
+
+servers:
+  - url: https://api.assalamtelecom.com.ng/api/v2
+    description: Production
+  - url: http://localhost:5000/api/v2
+    description: Local development
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+tags:
+  - name: Purchases
+  - name: Transactions
+  - name: Wallet
+  - name: Data Plans
+  - name: Services
+  - name: Validation
+
+paths:
+  /airtime:
+    post:
+      tags: [Purchases]
+      summary: Buy airtime
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AirtimeRequest"
+            example:
+              phone: "08012345678"
+              network: MTN
+              amount: 1000
+              requestId: MYAPP-001
+      responses:
+        "200":
+          description: Transaction created (success, pending, or failed — check `status`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "402":
+          $ref: "#/components/responses/InsufficientBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /data:
+    post:
+      tags: [Purchases]
+      summary: Buy a data bundle
+      description: >
+        `planCode` must come from `GET /data/plans` — it is that plan's
+        `planCode` field (the underlying `dataplan_id`), not a made-up
+        SKU like "MTN-1GB".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DataRequest"
+            example:
+              phone: "08012345678"
+              network: MTN
+              planCode: "102"
+              requestId: MYAPP-002
+      responses:
+        "200":
+          description: Transaction created (success, pending, or failed — check `status`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "402":
+          $ref: "#/components/responses/InsufficientBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /electricity:
+    post:
+      tags: [Purchases]
+      summary: Pay an electricity bill
+      description: Validate the meter first with `POST /validate/meter`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ElectricityRequest"
+            example:
+              meterId: "01"
+              meterNumber: "04012345678"
+              meterType: prepaid
+              amount: 2000
+              requestId: MYAPP-003
+      responses:
+        "200":
+          description: Transaction created (success, pending, or failed — check `status`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "402":
+          $ref: "#/components/responses/InsufficientBalance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /cable:
+    post:
+      tags: [Purchases]
+      summary: Pay a cable TV subscription (not yet available)
+      responses:
+        "400":
+          description: Cable TV is not available yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                code: SERVICE_DISABLED
+                message: Cable TV is not available at the moment.
+
+  /transaction/{transactionId}:
+    get:
+      tags: [Transactions]
+      summary: Get a single transaction's status
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: AST-83920182
+      responses:
+        "200":
+          description: Transaction found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  transaction:
+                    $ref: "#/components/schemas/TransactionRecord"
+        "404":
+          description: No transaction with that ID belongs to you
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: List your transactions
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: service
+          in: query
+          schema: { type: string, enum: [AIRTIME, DATA, ELECTRICITY, CABLE] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SUCCESS, FAILED, REFUNDED] }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: transactionId
+          in: query
+          schema: { type: string }
+        - name: requestId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: A page of your own transactions — you can never see another API user's data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  page: { type: integer }
+                  totalPages: { type: integer }
+                  totalTransactions: { type: integer }
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TransactionRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /wallet:
+    get:
+      tags: [Wallet]
+      summary: Get your current wallet balance
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  balance: { type: number, example: 125500 }
+                  currency: { type: string, example: NGN }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /data/plans:
+    get:
+      tags: [Data Plans]
+      summary: List available data plans and your price for each
+      description: If you have custom pricing, the `price` field already reflects it.
+      parameters:
+        - name: network
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [MTN, AIRTEL, GLO, 9MOBILE]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  plans:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DataPlan"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /services:
+    get:
+      tags: [Services]
+      summary: List services currently enabled for your account
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  services:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        serviceId: { type: string }
+                        name: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /validate/meter:
+    post:
+      tags: [Validation]
+      summary: Validate an electricity meter before paying
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [meterNumber, meterId]
+              properties:
+                meterNumber: { type: string, example: "04012345678" }
+                meterId: { type: string, example: "01" }
+                meterType: { type: string, enum: [prepaid, postpaid], example: prepaid }
+      responses:
+        "200":
+          description: Meter is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  name: { type: string, example: "JOHN DOE" }
+                  address: { type: string, example: "12 Example Street, Abuja" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: Could not reach the validation supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /validate/cable:
+    post:
+      tags: [Validation]
+      summary: Validate a cable TV smartcard (not yet available)
+      responses:
+        "400":
+          description: Cable TV is not available yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "ak_live_xxxxxxxxxxxxx"
+      description: 'Send your API key as `Authorization: Bearer ak_live_xxxxxxxxxxxxx`'
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Alternative to the Bearer header — send your API key as `X-API-Key`.
+
+  responses:
+    BadRequest:
+      description: The request was invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: INVALID_NETWORK
+            message: "Unsupported network: MYNETWORK"
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: INVALID_API_KEY
+            message: Invalid API key.
+    Forbidden:
+      description: Your API access is suspended/revoked, or this service isn't enabled for your account
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: API_ACCESS_SUSPENDED
+            message: Your API access has been suspended.
+    InsufficientBalance:
+      description: Your wallet balance is too low for this purchase
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: INSUFFICIENT_BALANCE
+            message: Insufficient wallet balance.
+    RateLimited:
+      description: You've exceeded your plan's request rate limit
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: RATE_LIMIT_EXCEEDED
+            message: Too many API requests. Please try again later.
+
+  schemas:
+    AirtimeRequest:
+      type: object
+      required: [phone, network, amount, requestId]
+      properties:
+        phone: { type: string, example: "08012345678" }
+        network: { type: string, enum: [MTN, AIRTEL, GLO, 9MOBILE] }
+        amount: { type: number, example: 1000 }
+        requestId: { type: string, example: MYAPP-001 }
+
+    DataRequest:
+      type: object
+      required: [phone, network, planCode, requestId]
+      properties:
+        phone: { type: string, example: "08012345678" }
+        network: { type: string, enum: [MTN, AIRTEL, GLO, 9MOBILE] }
+        planCode: { type: string, example: "102" }
+        requestId: { type: string, example: MYAPP-002 }
+
+    ElectricityRequest:
+      type: object
+      required: [meterId, meterNumber, meterType, amount, requestId]
+      properties:
+        meterId: { type: string, example: "01" }
+        meterNumber: { type: string, example: "04012345678" }
+        meterType: { type: string, enum: [prepaid, postpaid] }
+        amount: { type: number, example: 2000 }
+        requestId: { type: string, example: MYAPP-003 }
+
+    TransactionResult:
+      type: object
+      properties:
+        success: { type: boolean }
+        status: { type: string, enum: [SUCCESS, PENDING, FAILED] }
+        transactionId: { type: string, example: AST-83920182 }
+        requestId: { type: string, example: MYAPP-001 }
+        service: { type: string, enum: [AIRTIME, DATA, ELECTRICITY, CABLE] }
+        network: { type: string, nullable: true }
+        amount: { type: number }
+        charged: { type: number }
+        message: { type: string }
+
+    TransactionRecord:
+      type: object
+      properties:
+        transactionId: { type: string }
+        requestId: { type: string, nullable: true }
+        status: { type: string, enum: [PENDING, SUCCESS, FAILED, REFUNDED] }
+        service: { type: string, enum: [AIRTIME, DATA, ELECTRICITY, CABLE] }
+        network: { type: string, nullable: true }
+        amount: { type: number }
+        charged: { type: number }
+        createdAt: { type: string, format: date-time }
+
+    DataPlan:
+      type: object
+      properties:
+        planCode: { type: string, example: "102" }
+        network: { type: string, example: MTN }
+        name: { type: string, example: 1GB }
+        price: { type: number, example: 330 }
+        validity: { type: string, example: 30 days SME }
+
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        code:
+          type: string
+          enum:
+            - INVALID_API_KEY
+            - API_ACCESS_SUSPENDED
+            - API_ACCESS_REVOKED
+            - INSUFFICIENT_BALANCE
+            - INVALID_REQUEST
+            - INVALID_NETWORK
+            - INVALID_AMOUNT
+            - SERVICE_DISABLED
+            - PLAN_NOT_FOUND
+            - DUPLICATE_REQUEST
+            - TRANSACTION_NOT_FOUND
+            - RATE_LIMIT_EXCEEDED
+            - SUPPLIER_ERROR
+            - INTERNAL_ERROR
+        message: { type: string }

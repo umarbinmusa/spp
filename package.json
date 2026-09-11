@@ -1,0 +1,46 @@
+{
+  "name": "AssalamTelecom",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+  "install-server": "npm install",
+  "start": "node server.js",
+  "server": "nodemon server.js",
+  "dev": "nodemon server.js",
+  "render-postbuild": "echo 'No client build step required'",
+  "test": "node tests/run.js"
+},
+
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.23.0",
+    "bcrypt": "^5.0.1",
+    "concurrently": "^7.1.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "express-rate-limit": "^5.5.0",
+    "flutterwave-node-v3": "^1.0.9",
+    "handlebars": "^4.7.7",
+    "helmet": "^4.6.0",
+    "http-status-codes": "^2.1.4",
+    "i": "^0.3.7",
+    "js-sha512": "^0.8.0",
+    "jsonwebtoken": "^8.5.1",
+    "md5": "^2.3.0",
+    "mongoose": "^6.0.11",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.7.0",
+    "nodemon": "^2.0.13",
+    "rand-token": "^1.0.1",
+    "swagger-ui-express": "^4.1.6",
+    "uuid": "^8.3.2",
+    "validator": "^13.6.0",
+    "voucher-code-generator": "^1.1.1",
+    "xss-clean": "^0.1.1",
+    "yamljs": "^0.3.0"
+  }
+}
