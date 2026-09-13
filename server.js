@@ -130,7 +130,7 @@ app.use("/api/v1/api-user", apiUserRouter);
 // Public, stable developer-facing API — authenticated via API key, NOT the website JWT
 app.use("/api/v2", apiV2Router);
 app.use(cors({
-  origin: "https://sppclient.onrender.com",   // <-- your deployed frontend URL
+  origin: "http://localhost:3000",   // <-- your deployed frontend URL
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
