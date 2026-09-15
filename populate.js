@@ -6,7 +6,6 @@ const notification = require("./Models/notification");
 const { GOTV, DSTV, STARTIME } = require("./API_DATA/cabletv");
 const {
   MTN_SME,
-  MTN_SME2,
   GLO,
   AIRTEL,
   NMOBILE,
@@ -29,7 +28,6 @@ const populate = async () => {
     // await costPriceModel.deleteMany({});
     // await costPriceModel.create(costPrices);
     // await dataModel.create(MTN_SME);
-    // await dataModel.create(MTN_SME2);
     // await dataModel.create(AIRTEL);
     // await dataModel.create(GLO);
     // await dataModel.create(NMOBILE);

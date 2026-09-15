@@ -8,7 +8,7 @@ require("dotenv").config();
 
 const dataModel = require("./Models/dataModel");
 const costPriceModel = require("./Models/costPriceModel");
-const { MTN_SME, MTN_SME2, GLO, AIRTEL, NMOBILE } = require("./API_DATA/newData");
+const { MTN_SME, GLO, AIRTEL, NMOBILE } = require("./API_DATA/newData");
 
 const costPrices = [
   { network: "MTN", costPrice: 256 },
@@ -30,7 +30,6 @@ const seed = async () => {
       console.log(`Data collection already has ${existingPlans} plans — skipping (nothing inserted).`);
     } else {
       await dataModel.create(MTN_SME);
-      await dataModel.create(MTN_SME2);
       await dataModel.create(AIRTEL);
       await dataModel.create(GLO);
       await dataModel.create(NMOBILE);
