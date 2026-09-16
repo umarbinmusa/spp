@@ -2,6 +2,20 @@ const express = require("express");
 const app = express();
 const jwt = require("jsonwebtoken");
 
+// Defense-in-depth: without these, ANY uncaught exception or unhandled
+// promise rejection anywhere in the codebase (Node 15+) crashes the entire
+// process — taking down every user's requests, not just the one that
+// failed, until Render restarts it. This is exactly what just happened
+// with a single supplier-API failure inside BUYDATA. Log and keep running
+// instead of dying. This is a safety net, not a substitute for fixing the
+// underlying bug in whichever call actually threw.
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION — server is staying up:", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("UNCAUGHT EXCEPTION — server is staying up:", error);
+});
+
 const ConnectDB = require("./Controllers/ConnectB");
 const auth = require("./Middleware/auth");
 const { dirname } = require("path");

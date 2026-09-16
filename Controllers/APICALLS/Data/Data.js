@@ -26,10 +26,14 @@ const BUYDATA = async ({ network, mobile_number, plan }) => {
       data: BuyDataResponse.data.receipt,
     };
   } catch (error) {
-    console.log(error.response.data);
+    if (error.response) {
+      console.log(error.response.data);
+    } else {
+      console.log("BUYDATA request failed with no response:", error.message);
+    }
     return {
       status: false,
-      msg: error.response.data.msg || "Transaction failed",
+      msg: (error.response && error.response.data && error.response.data.msg) || "Transaction failed",
     };
   }
 };
