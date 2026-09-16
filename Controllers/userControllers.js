@@ -1073,10 +1073,10 @@ const updateKyc = async (req, res) => {
         result.msg = accountName;
       }
     } catch (error) {
-      console.log({ statusCode: error.response.status });
+      console.log({ statusCode: error.response ? error.response.status : undefined, message: error.message });
       result.status = false;
-      result.msg = error.response.data.responseMessage;
-      result.statusCode = error.response.status;
+      result.msg = (error.response && error.response.data && error.response.data.responseMessage) || "KYC update failed";
+      result.statusCode = error.response ? error.response.status : undefined;
     }
     console.log({ reference, result });
     return result;

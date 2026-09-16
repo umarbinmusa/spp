@@ -331,17 +331,21 @@ const getCostPrice = async (req, res) => {
 const updateNotification = async (req, res) => {
   const { msg } = req.body;
   try {
-    await notification.updateOne({ msg });
+    await notification.findOneAndUpdate(
+      {},
+      { $set: { msg } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
     return res.status(200).json({ msg });
   } catch (e) {
+    console.log(e);
     return res.status(500).json({ msg: "something went wrong" });
   }
 };
 const getNotification = async (req, res) => {
   try {
-    const { msg } = await notification.findOne();
-    // console.log(msg);
-    return res.status(200).json({ msg });
+    const existing = await notification.findOne();
+    return res.status(200).json({ msg: existing ? existing.msg : "" });
   } catch (e) {
     console.log(e);
     return res.status(500).json({ msg: "something went wrong" });

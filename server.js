@@ -125,6 +125,10 @@ app.get("/api-docs/API_MANAGEMENT.md", (req, res) => {
   res.type("text/plain").sendFile(path.join(__dirname, "API_MANAGEMENT.md"));
 });
 
+app.get("/api-docs/PERSONAL_API_TOKEN.md", (req, res) => {
+  res.type("text/plain").sendFile(path.join(__dirname, "docs/PERSONAL_API_TOKEN.md"));
+});
+
 app.use("/api/v1/auth", usersRouter);
 app.use("/api/v1/buy", auth, purchaseRouter);
 app.use("/api/v1/fundWallet", fundWalletRouter);

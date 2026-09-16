@@ -57,7 +57,10 @@ const generateAcc = async ({ userName, email, bvn, nin }) => {
     return { status: true, msg: accountName };
   } catch (error) {
     console.log(error);
-    return { status: false, msg: error.response.data.responseMessage };
+    return {
+      status: false,
+      msg: (error.response && error.response.data && error.response.data.responseMessage) || "Failed to generate account number",
+    };
   }
 };
 module.exports = generateAcc;

@@ -207,9 +207,13 @@ const validateMeter = async (req, res) => {
     console.log({ invalid, name, address });
     res.status(200).json({ name, address });
   } catch (error) {
-    console.log(error.response.data);
+    if (error.response) {
+      console.log(error.response.data);
+    } else {
+      console.log("validateMeter request failed with no response:", error.message);
+    }
     res.status(500).json({
-      msg: error.response.data.name || "An error occur.Please try again later",
+      msg: (error.response && error.response.data && error.response.data.name) || "An error occur.Please try again later",
     });
   }
 };
