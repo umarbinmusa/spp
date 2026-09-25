@@ -122,14 +122,31 @@ push the balance negative — this is verified by a concurrency test in
 
 ## Pricing priority
 
-For every purchase, the effective price is resolved in this order and never
-silently falls through to the wrong tier:
+**Data plans** are priced from the admin's existing "Update Price" screen
+first — that's the single source of truth every API user is charged from.
+The separate API Management > API Pricing tab (USER/TIER/DEFAULT rules)
+only ever kicks in for a plan where no "api" price was ever set there:
+
+```
+1. PLAN_API_PRICE — the data plan's own `apiPrice` field, set via Update Price.
+                     Wins outright whenever it's set — even over a USER-scoped
+                     ApiPricing rule for that specific API user.
+2. USER    — ApiPricing row scoped to this specific ApiAccess (only reached
+             when the plan has no apiPrice set at all)
+3. TIER    — ApiPricing row scoped to this ApiAccess's tier (STARTER/PRO/BUSINESS/ENTERPRISE)
+4. DEFAULT — ApiPricing row with no user/tier scope (system-wide API price)
+5. FALLBACK — reseller/base price as a last resort
+```
+
+**Airtime and the electricity convenience fee** have no Update Price
+equivalent (Update Price only edits data plans), so they still resolve
+purely from the API Pricing tab:
 
 ```
 1. USER    — ApiPricing row scoped to this specific ApiAccess
-2. TIER    — ApiPricing row scoped to this ApiAccess's tier (STARTER/PRO/BUSINESS/ENTERPRISE)
-3. DEFAULT — ApiPricing row with no user/tier scope (system-wide API price)
-4. FALLBACK — hardcoded percentages (airtime) / the data plan's own apiPrice field (data)
+2. TIER    — ApiPricing row scoped to this ApiAccess's tier
+3. DEFAULT — ApiPricing row with no user/tier scope
+4. FALLBACK — hardcoded percentages (airtime) / a hardcoded fee (electricity)
 ```
 
 Airtime pricing is `PERCENTAGE` (price = % of face value charged). Data and

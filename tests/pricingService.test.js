@@ -59,8 +59,8 @@ module.exports = async function runPricingServiceTests() {
   assert.strictEqual(priceD.chargedAmount, 985, "GLO fallback is 98.5%, so 1000 * 98.5% = 985");
 
   // --- Data pricing: the plan's own apiPrice (set via the admin's existing
-  // "Update Price" screen) must win over any DEFAULT/TIER rule someone left
-  // configured — those should only apply to a plan with no apiPrice set at all.
+  // "Update Price" screen) must win over EVERYTHING else — USER/TIER/DEFAULT
+  // ApiPricing rules only ever apply to a plan with no apiPrice set at all.
   const dataPricingDocs = [
     { scope: "DEFAULT", apiUser: null, tier: null, service: "DATA", network: null, planCode: "102", pricingType: "FIXED", price: 999, active: true },
     { scope: "TIER", apiUser: null, tier: "PRO", service: "DATA", network: null, planCode: "102", pricingType: "FIXED", price: 888, active: true },
@@ -80,15 +80,28 @@ module.exports = async function runPricingServiceTests() {
   assert.strictEqual(dataPriceUpdated.source, "PLAN_API_PRICE", "plan.apiPrice must win over TIER/DEFAULT rules");
   assert.strictEqual(dataPriceUpdated.chargedAmount, 330, "must charge exactly what was set via Update Price");
 
-  // A USER-specific override still wins even over a set apiPrice — this is
-  // the one deliberate per-API-user exception an admin can still configure.
-  const dataPriceUserOverride = await pricingServiceData.resolveDataPrice({
+  // Update Price now wins even over a USER-specific ApiPricing override —
+  // Update Price is the single source of truth whenever it's set at all.
+  const dataPriceUpdateBeatsUserOverride = await pricingServiceData.resolveDataPrice({
     apiAccess: { _id: apiUserA, tier: "STARTER" },
     planCode: "999",
     plan: { apiPrice: "500" },
   });
-  assert.strictEqual(dataPriceUserOverride.source, "USER");
-  assert.strictEqual(dataPriceUserOverride.chargedAmount, 111);
+  assert.strictEqual(
+    dataPriceUpdateBeatsUserOverride.source,
+    "PLAN_API_PRICE",
+    "Update Price must win even over a USER-scoped ApiPricing override"
+  );
+  assert.strictEqual(dataPriceUpdateBeatsUserOverride.chargedAmount, 500);
+
+  // Only when the plan has NO apiPrice at all does the USER override apply.
+  const dataPriceUserOverrideWhenUnset = await pricingServiceData.resolveDataPrice({
+    apiAccess: { _id: apiUserA, tier: "STARTER" },
+    planCode: "999",
+    plan: { apiPrice: null },
+  });
+  assert.strictEqual(dataPriceUserOverrideWhenUnset.source, "USER");
+  assert.strictEqual(dataPriceUserOverrideWhenUnset.chargedAmount, 111);
 
   // A plan with no apiPrice at all falls through to TIER, then DEFAULT.
   const dataPriceNoApiPrice = await pricingServiceData.resolveDataPrice({

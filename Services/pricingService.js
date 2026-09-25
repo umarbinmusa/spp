@@ -64,17 +64,22 @@ const resolveAirtimePrice = async ({ apiAccess, network, faceAmount }) => {
 /**
  * Resolves the API price for a data plan purchase.
  *
- * Priority: user-specific override -> the plan's own apiPrice field (set
- * via the existing admin "Update Price" screen) -> TIER ApiPricing ->
+ * Priority: the plan's own apiPrice field (set via the admin "Update Price"
+ * screen) -> user-specific ApiPricing override -> TIER ApiPricing ->
  * DEFAULT ApiPricing -> reseller/base price as a last resort.
  *
- * The plan's apiPrice is checked before TIER/DEFAULT deliberately: admins
- * already maintain per-plan pricing from the Update Price screen, and that
- * should be the single source of truth for every API user unless the admin
- * has explicitly configured something different for one specific API user.
- * TIER/DEFAULT rules only matter for a plan where apiPrice was never set.
+ * Update Price is checked FIRST and wins outright whenever it's set: that
+ * screen is the single source of truth an admin actually uses day-to-day,
+ * so an API user must be charged exactly what's configured there. The
+ * USER/TIER/DEFAULT ApiPricing rules (configured separately, from the API
+ * Management > API Pricing tab) only ever kick in for a plan where nobody
+ * has set an apiPrice at all.
  */
 const resolveDataPrice = async ({ apiAccess, planCode, plan }) => {
+  if (plan.apiPrice) {
+    return { chargedAmount: round2(Number(plan.apiPrice)), source: "PLAN_API_PRICE" };
+  }
+
   const userPricing = await ApiPricing.findOne({
     scope: "USER",
     apiUser: apiAccess._id,
@@ -84,10 +89,6 @@ const resolveDataPrice = async ({ apiAccess, planCode, plan }) => {
   });
   if (userPricing) {
     return { chargedAmount: round2(userPricing.price), source: "USER" };
-  }
-
-  if (plan.apiPrice) {
-    return { chargedAmount: round2(Number(plan.apiPrice)), source: "PLAN_API_PRICE" };
   }
 
   const tierPricing = await ApiPricing.findOne({

@@ -105,14 +105,20 @@ app.use(morgan("dev"));
 // }
 
 // Public, unauthenticated interactive documentation for external developers
-// integrating with /api/v2. helmet's default CSP blocks the inline scripts
-// swagger-ui-express's bundled page uses to boot itself, so it's relaxed
-// only for this one route — the rest of the app keeps helmet's full CSP.
+// integrating with /api/v2. It's also embedded (via iframe) inside the
+// logged-in user's own account on the frontend (see /profile/api-docs
+// client-side), so this must be safe to frame from the frontend's origin —
+// helmet's default X-Frame-Options: SAMEORIGIN would otherwise block that
+// embed since the frontend and this backend are on different domains.
+// helmet's default CSP also blocks the inline scripts swagger-ui-express's
+// bundled page uses to boot itself. Both are relaxed only for this one
+// route — the rest of the app keeps helmet's full CSP/frame protection.
 const swaggerDocument = YAML.load(path.join(__dirname, "docs/openapi.yaml"));
 app.use(
   "/api-docs",
   (req, res, next) => {
     res.removeHeader("Content-Security-Policy");
+    res.removeHeader("X-Frame-Options");
     next();
   },
   swaggerUI.serve,
@@ -122,10 +128,12 @@ app.use(
 );
 
 app.get("/api-docs/API_MANAGEMENT.md", (req, res) => {
+  res.removeHeader("X-Frame-Options");
   res.type("text/plain").sendFile(path.join(__dirname, "API_MANAGEMENT.md"));
 });
 
 app.get("/api-docs/PERSONAL_API_TOKEN.md", (req, res) => {
+  res.removeHeader("X-Frame-Options");
   res.type("text/plain").sendFile(path.join(__dirname, "docs/PERSONAL_API_TOKEN.md"));
 });
 
