@@ -77,7 +77,7 @@ const initiateFlutterwave = async (req, res) => {
       {
         tx_ref: transactionId,
         amount: amountToBeCharged,
-        redirect_url: `https://${process.env.FRONTEND_URL}/profile/dashboard`,
+        redirect_url: `${process.env.FRONTEND_URL.replace(/\/$/, "")}/profile/dashboard`,
         payment_options: "card",
         currency: "NGN",
         customer: {

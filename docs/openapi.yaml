@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Assalam Telecom API
+  title: SPP Data Depot API
   version: "2.0"
   description: |
     Public API for external developers to purchase airtime, data, and
@@ -8,7 +8,7 @@ info:
     website, mobile app, POS system, or software.
 
     ## Getting an API key
-    Ask an Assalam Telecom administrator to convert your account into an
+    Ask a SPP Data Depot administrator to convert your account into an
     API User. You'll be issued an **API Key** and **API Secret** once —
     save them immediately, as they cannot be retrieved again (only
     regenerated). You'll need to fund your wallet before making purchases;
@@ -21,13 +21,13 @@ info:
     creates a second transaction or charges your wallet twice — it simply
     returns the original transaction.
   contact:
-    name: Assalam Telecom
+    name: SPP Data Depot
 externalDocs:
   description: Full written guide (pricing tiers, webhooks, error codes)
   url: /api-docs/API_MANAGEMENT.md
 
 servers:
-  - url: https://api.assalamtelecom.com.ng/api/v2
+  - url: https://api.sppdatadepot.com.ng/api/v2
     description: Production
   - url: http://localhost:5000/api/v2
     description: Local development

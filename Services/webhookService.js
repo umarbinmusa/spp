@@ -18,7 +18,7 @@ const attemptDelivery = async (delivery, apiAccess, retriesLeft = 3) => {
     const response = await axios.post(delivery.url, delivery.payload, {
       headers: {
         "Content-Type": "application/json",
-        ...(signature ? { "X-Assalam-Signature": signature } : {}),
+        ...(signature ? { "X-SPP-Signature": signature } : {}),
       },
       timeout: 8000,
     });
@@ -89,14 +89,14 @@ const sendTestWebhook = async (apiAccess) => {
   }
   const payload = {
     event: "webhook.test",
-    message: "This is a test webhook from Assalam Telecom",
+    message: "This is a test webhook from SPP Data Depot",
     sentAt: new Date().toISOString(),
   };
   const signature = apiAccess.webhookSecret ? sign(payload, apiAccess.webhookSecret) : undefined;
   const response = await axios.post(apiAccess.webhookUrl, payload, {
     headers: {
       "Content-Type": "application/json",
-      ...(signature ? { "X-Assalam-Signature": signature } : {}),
+      ...(signature ? { "X-SPP-Signature": signature } : {}),
     },
     timeout: 8000,
   });

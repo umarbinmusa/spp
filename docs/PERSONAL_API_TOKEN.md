@@ -1,6 +1,6 @@
 # Personal API Token — Quick Integration Guide
 
-Every Assalam Telecom account already has a personal **API key** (shown on
+Every SPP Data Depot account already has a personal **API key** (shown on
 your Account page). This lets you call our internal API directly from your
 own script or app using your own account's normal pricing (customer,
 reseller, etc. — whatever your account type already gets on the website).
@@ -22,7 +22,7 @@ Authorization: Bearer <your API key>
 ## Base URL
 
 ```
-https://<your-backend-domain>/api/v1
+https://api.sppdatadepot.com.ng/api/v1
 ```
 
 ## Endpoints

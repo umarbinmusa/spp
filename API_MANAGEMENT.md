@@ -1,7 +1,7 @@
-# Assalam Telecom — API Management System
+# SPP Data Depot — API Management System
 
 This document covers everything added on top of the existing platform to
-turn Assalam Telecom into a VTU API provider. Nothing in the existing
+turn SPP Data Depot into a VTU API provider. Nothing in the existing
 `/api/v1` routes, models, or controllers was modified or removed — this is
 purely additive.
 
@@ -54,7 +54,7 @@ routers — every existing route, middleware, and mount order is untouched.
   only serves `client/build` if it exists. The Admin API Management pages
   and the API User dashboard pages described in the spec are backend
   endpoints only; there is no React/Vue code to wire them into here.
-- **Sandbox environment** (`sandbox.assalamtelecom.com.ng`, fake supplier
+- **Sandbox environment** (a separate sandbox URL/subdomain, fake supplier
   responses). `ApiAccess.environment` (`live`/`sandbox`) exists as a field
   so this can be built on top later, but no sandbox routing or fake-supplier
   logic has been implemented.
@@ -209,7 +209,7 @@ X-API-Key: ak_live_xxxxxxxxxxxxx
 ```
 
 ```bash
-curl -X POST https://api.assalamtelecom.com.ng/api/v2/airtime \
+curl -X POST https://api.sppdatadepot.com.ng/api/v2/airtime \
   -H "Authorization: Bearer ak_live_xxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{"phone":"08012345678","network":"MTN","amount":1000,"requestId":"MYAPP-001"}'
