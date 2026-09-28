@@ -21,6 +21,7 @@ const {
   listApiLogs,
   testWebhook,
   getApiAnalytics,
+  getWebhookSecretOnce, // TEMPORARY
 } = require("../Controllers/Admin/apiManagementController");
 
 // Every route here is admin-only: normal user JWT auth, then the isAdmin gate.
@@ -52,5 +53,8 @@ router.get("/logs", listApiLogs);
 
 // Analytics
 router.get("/analytics", getApiAnalytics);
+
+// TEMPORARY — one-off webhook secret retrieval. Delete this line once used.
+router.get("/users/by-api-user-id/:apiUserId/webhook-secret", getWebhookSecretOnce);
 
 module.exports = router;
