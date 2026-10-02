@@ -4,6 +4,7 @@ const auth = require("../Middleware/auth");
 const {
   getDashboard,
   getCredentials,
+  getMyTransactions,
   regenerateMyKey,
   regenerateMySecret,
   updateMyWebhook,
@@ -14,6 +15,7 @@ const {
 // developer logging into the dashboard to manage their own API access.
 router.get("/dashboard", auth, getDashboard);
 router.get("/credentials", auth, getCredentials);
+router.get("/transactions", auth, getMyTransactions);
 router.post("/regenerate-key", auth, regenerateMyKey);
 router.post("/regenerate-secret", auth, regenerateMySecret);
 router.post("/webhook", auth, updateMyWebhook);

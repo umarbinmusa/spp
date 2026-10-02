@@ -9,26 +9,6 @@ const apiCredentialService = require("../../Services/apiCredentialService");
 const webhookService = require("../../Services/webhookService");
 const { logAdminAction } = require("../../Services/auditLogService");
 
-// --- TEMPORARY: one-off webhook-secret lookup. Remove this whole block
-// (and its route in adminApiManagementRouter.js) once you've retrieved the
-// secret — it exposes a live signing secret in plaintext and should not
-// stay in the codebase.
-const getWebhookSecretOnce = async (req, res) => {
-  try {
-    const { apiUserId } = req.params;
-    const apiAccess = await ApiAccess.findOne({ apiUserId });
-    if (!apiAccess) return res.status(404).json({ msg: "API user not found" });
-    return res.status(200).json({
-      apiUserId: apiAccess.apiUserId,
-      webhookUrl: apiAccess.webhookUrl,
-      webhookSecret: apiAccess.webhookSecret,
-    });
-  } catch (error) {
-    console.log("getWebhookSecretOnce error:", error);
-    return res.status(500).json({ msg: "Something went wrong" });
-  }
-};
-
 // ---------------------------------------------------------------------------
 // Make user -> API User
 // ---------------------------------------------------------------------------
@@ -581,5 +561,4 @@ module.exports = {
   listApiLogs,
   testWebhook,
   getApiAnalytics,
-  getWebhookSecretOnce, // TEMPORARY — remove along with the route above
 };
