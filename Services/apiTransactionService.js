@@ -1,6 +1,7 @@
 const { v4: uuid } = require("uuid");
 const ApiTransaction = require("../Models/apiTransactionModel");
 const DataModel = require("../Models/dataModel");
+const CostPrice = require("../Models/costPriceModel");
 const walletService = require("./walletService");
 const pricingService = require("./pricingService");
 const webhookService = require("./webhookService");
@@ -18,6 +19,28 @@ const BUYELECTRICITY = require("../Controllers/APICALLS/Electricity/electricity"
 // unify these into a single map.
 const AIRTIME_NETWORK_ID_MAP = { MTN: "1", GLO: "2", AIRTEL: "3", "9MOBILE": "4" };
 const DATA_NETWORK_ID_MAP = { MTN: "1", GLO: "2", AIRTEL: "3", "9MOBILE": "6" };
+
+// Resolves what this data plan actually costs the platform, the same way
+// the website's own buyData controller does (CostPrice[network], with
+// MTN-CG/MTN-COUPON special cases, times the plan's volumeRatio) — falling
+// back to the plan's own planCostPrice override when set. Returns 0 (rather
+// than throwing) if no CostPrice row exists for the network, so a missing
+// admin-configured cost price degrades to "profit unknown" instead of
+// failing the purchase.
+const resolveDataSupplierCost = async ({ plan, network }) => {
+  if (plan.planCostPrice) return Number(plan.planCostPrice) || 0;
+
+  let lookupNetwork = network;
+  if (network === "MTN" && plan.plan_type === "CG") lookupNetwork = "MTN-CG";
+  if (network === "MTN" && plan.plan_type === "COUPON") lookupNetwork = "MTN-COUPON";
+
+  const row = await CostPrice.findOne({ network: lookupNetwork }).catch(() => null);
+  if (!row || !row.costPrice) return 0;
+
+  return Number(row.costPrice) * (Number(plan.volumeRatio) || 1);
+};
+
+const round2 = (n) => Math.round(n * 100) / 100;
 
 const genTransactionId = () => {
   return `AST-${Date.now().toString(36).toUpperCase()}${uuid().split("-")[0].toUpperCase()}`;
@@ -105,6 +128,13 @@ const processAirtime = async ({ apiAccess, phone, network, amount, requestId }) 
     txn.status = "SUCCESS";
     txn.supplierReference = supplierResult.apiResponseId || null;
     txn.response = { msg: supplierResult.msg };
+    // NOTE: unlike data/electricity, there is no airtime cost-price source
+    // anywhere in this codebase (CostPrice's values are a per-GB data rate,
+    // not an airtime percentage, and the website's own buyAirtime controller
+    // has this same gap — see Controllers/purchaseControllers.js). profit
+    // is left at 0 here rather than guessed; wire up a real airtime cost
+    // source (e.g. a new ApiPricing/CostPrice-style "cost %" per network)
+    // before relying on this number.
   } else {
     await walletService.creditWallet({
       userId: apiAccess.user,
@@ -202,6 +232,9 @@ const processData = async ({ apiAccess, phone, network, planCode, requestId }) =
   if (supplierResult.status) {
     txn.status = "SUCCESS";
     txn.response = { msg: supplierResult.msg, data: supplierResult.data };
+    const supplierCost = await resolveDataSupplierCost({ plan, network: net });
+    txn.supplierCost = supplierCost;
+    txn.profit = round2(chargedAmount - supplierCost);
   } else {
     await walletService.creditWallet({
       userId: apiAccess.user,
@@ -275,6 +308,10 @@ const processElectricity = async ({ apiAccess, meterId, meterNumber, meterType, 
   if (supplierResult.status) {
     txn.status = "SUCCESS";
     txn.response = { msg: supplierResult.msg, token: supplierResult.token };
+    // The supplier is paid exactly faceAmount (the meter token value); the
+    // convenience fee charged on top is the entire margin.
+    txn.supplierCost = faceAmount;
+    txn.profit = round2(fee);
   } else {
     await walletService.creditWallet({
       userId: apiAccess.user,

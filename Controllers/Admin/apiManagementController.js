@@ -505,6 +505,8 @@ const getApiAnalytics = async (req, res) => {
       txnsToday,
       revenueTodayAgg,
       revenueMonthAgg,
+      profitTodayAgg,
+      profitMonthAgg,
       successCount,
       failedCount,
       totalCount,
@@ -520,6 +522,18 @@ const getApiAnalytics = async (req, res) => {
         { $match: { createdAt: { $gte: startOfMonth }, status: "SUCCESS" } },
         { $group: { _id: null, total: { $sum: "$chargedAmount" } } },
       ]),
+      // Airtime rows have no real cost basis yet (see apiTransactionService.js),
+      // so their `profit` field is 0 — this total is accurate for data and
+      // electricity, and an undercount of true profit only to the extent
+      // airtime margin exists but isn't tracked.
+      ApiTransaction.aggregate([
+        { $match: { createdAt: { $gte: startOfToday }, status: "SUCCESS" } },
+        { $group: { _id: null, total: { $sum: "$profit" } } },
+      ]),
+      ApiTransaction.aggregate([
+        { $match: { createdAt: { $gte: startOfMonth }, status: "SUCCESS" } },
+        { $group: { _id: null, total: { $sum: "$profit" } } },
+      ]),
       ApiTransaction.countDocuments({ status: "SUCCESS" }),
       ApiTransaction.countDocuments({ status: "FAILED" }),
       ApiTransaction.countDocuments(),
@@ -534,6 +548,10 @@ const getApiAnalytics = async (req, res) => {
       apiTransactionsToday: txnsToday,
       apiRevenueToday: revenueTodayAgg[0] ? revenueTodayAgg[0].total : 0,
       apiRevenueThisMonth: revenueMonthAgg[0] ? revenueMonthAgg[0].total : 0,
+      // Profit is tracked for DATA and ELECTRICITY only (no airtime cost
+      // source exists yet) — see the note in apiTransactionService.js.
+      apiProfitToday: profitTodayAgg[0] ? profitTodayAgg[0].total : 0,
+      apiProfitThisMonth: profitMonthAgg[0] ? profitMonthAgg[0].total : 0,
       successfulTransactionsRate: `${successRate}%`,
       failedTransactionsRate: `${failureRate}%`,
     });
