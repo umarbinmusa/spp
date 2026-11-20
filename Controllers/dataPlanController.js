@@ -1,5 +1,16 @@
 const dataModel = require("../Models/dataModel");
 
+const NETWORK_NUMBER = { MTN: 1, GLO: 2, AIRTEL: 3, "9MOBILE": 4 };
+
+// "mtn", " Airtel " -> "MTN", "AIRTEL" so plans always land in the right Buy Data list
+const normalizeNetwork = (value) => String(value || "").trim().toUpperCase();
+
+// Missing availability = available. Only an explicit false/"false"/0 hides a plan.
+const parseAvailability = (value) => {
+  if (value === undefined || value === null || value === "") return true;
+  return [true, "true", 1, "1", "on"].includes(value);
+};
+
 const fetchDataPlan = async (req, res) => {
   const { network, dataType } = req.query;
   const queryInfo = {};
@@ -49,12 +60,18 @@ const addPlan = async (req, res) => {
       planAvailability,
       planVolumeRatio,
     } = req.body;
-    const networkNumber = { MTN: 1, GLO: 2, AIRTEL: 3, "9MOBILE": 4 };
+    const network = normalizeNetwork(planNetwork);
+    if (!NETWORK_NUMBER[network])
+      return res.status(400).json({ msg: "Invalid network" });
+    if (await dataModel.findOne({ id: planId }))
+      return res
+        .status(400)
+        .json({ msg: "A plan with this Plan ID already exists" });
     await dataModel.create({
       id: planId,
-      dataplan_id: toString(planId),
-      network: networkNumber[planNetwork],
-      plan_network: planNetwork,
+      dataplan_id: String(planId),
+      network: NETWORK_NUMBER[network],
+      plan_network: network,
       plan_type: planType,
       month_validate: planValidity,
       plan: planName,
@@ -65,9 +82,9 @@ const addPlan = async (req, res) => {
       apiPrice: apiPrice,
       volumeRatio: planVolumeRatio,
       planCostPrice: planCostPrice,
-      isAvailable: planAvailability ? true : false,
+      isAvailable: parseAvailability(planAvailability),
     });
-    res.status(200).json({ msg: "The plan has been updated " });
+    res.status(200).json({ msg: "The plan has been added" });
   } catch (error) {
     console.log(error);
     res.status(500).json({ msg: "Something went wrong" });
@@ -123,15 +140,17 @@ const updatePlan = async (req, res) => {
       planAvailability,
       planVolumeRatio,
     } = req.body;
-    const networkNumber = { MTN: 1, GLO: 2, AIRTEL: 3, "9MOBILE": 4 };
+    const network = normalizeNetwork(planNetwork);
+    if (!NETWORK_NUMBER[network])
+      return res.status(400).json({ msg: "Invalid network" });
     await dataModel.findOneAndUpdate(
       { _id },
       {
         $set: {
           id: planId,
-          dataplan_id: planId,
-          network: networkNumber[planNetwork],
-          plan_network: planNetwork,
+          dataplan_id: String(planId),
+          network: NETWORK_NUMBER[network],
+          plan_network: network,
           plan_type: planType,
           month_validate: planValidity,
           plan: planName,
@@ -142,7 +161,7 @@ const updatePlan = async (req, res) => {
           apiPrice: apiPrice,
           volumeRatio: planVolumeRatio,
           planCostPrice: planCostPrice,
-          isAvailable: planAvailability ? true : false,
+          isAvailable: parseAvailability(planAvailability),
         },
       }
     );
