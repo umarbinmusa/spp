@@ -1028,29 +1028,55 @@ const updateKyc = async (req, res) => {
       return res.status(400).json({ msg: "You have done your KYC before" });
     }
 
+    const hasBillStackAcc = (user.accountNumbers || []).some(
+      (a) => a && (a.bankName === "palmpay" || a.bankName === "9psb")
+    );
+    if (!hasBillStackAcc) {
+      return res.status(400).json({
+        msg: "Your payment accounts are not ready yet. Log out, log in again and retry",
+      });
+    }
+
+    const url = `${BILLSTACK_API.replace(/\/+$/, "")}/upgradeVirtualAccount/`;
     let data;
     try {
       const response = await axios.post(
-        `${BILLSTACK_API.replace(/\/+$/, "")}/upgradeVirtualAccount/`,
+        url,
         { customer: user.email, bvn: Number(bvnNo) },
         {
           headers: {
             Authorization: `Bearer ${BILLSTACK_SECRET}`,
             "Content-Type": "application/json",
           },
+          timeout: 20000,
         }
       );
       data = response.data;
     } catch (error) {
+      const d = error.response?.data;
       console.log("BillStack KYC error", {
+        url,
         status: error.response?.status,
-        data: error.response?.data,
+        data: typeof d === "string" ? d.slice(0, 300) : d,
+        code: error.code,
         message: error.message,
       });
-      return res.status(400).json({
+      if (!error.response) {
+        return res
+          .status(502)
+          .json({ msg: "Could not reach the KYC provider. Try again later" });
+      }
+      const providerMsg =
+        d && typeof d === "object" ? d.message || d.error || d.msg : null;
+      const status = error.response.status;
+      return res.status(status === 401 || status === 404 ? 502 : 400).json({
         msg:
-          error.response?.data?.message ||
-          "KYC failed. Check your BVN and try again",
+          providerMsg ||
+          (status === 401
+            ? "KYC service is not available right now. Contact admin"
+            : status === 404
+            ? "KYC service endpoint not found. Contact admin"
+            : "KYC failed. Check your BVN and try again"),
       });
     }
 
