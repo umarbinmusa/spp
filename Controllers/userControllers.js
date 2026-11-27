@@ -996,115 +996,143 @@ const upgradeToPartner = async (req, res) => {
   }
 };
 const updateKyc = async (req, res) => {
-  const { userId } = req.user;
-  const { nin: ninNo, bvn: bvnNo } = req.body;
-  const {
-    MONNIFY_API_URL,
-    // MONNIFY_API_ENCODED,
-    MONNIFY_API_KEY,
-    MONNIFY_API_SECRET,
-  } = process.env;
-  if (!ninNo && !bvnNo) {
-    return res.status(400).json({ msg: "Please provide Bvn/Nin" });
-  }
+  try {
+    const { userId } = req.user;
+    const ninNo = req.body.nin ? String(req.body.nin).trim() : "";
+    const bvnNo = req.body.bvn ? String(req.body.bvn).trim() : "";
 
-  const { userName, email, bvn, nin, accountNumbers } = await User.findOne({
-    _id: userId,
-  });
-  if (bvn || nin)
-    return res.status(400).json({ msg: "You have done your KYC before" });
-  if (accountNumbers.length < 1) {
-    const response = await generateAcc({
-      userName,
-      email,
-      bvn: bvnNo,
-      nin: ninNo,
-    });
-    // console.log(response);
-    if (!response.status) {
-      return res.status(400).json({ msg: response.msg });
-    } else {
-      const kycDetails = {
-        fullName: response.msg,
-        bvn: bvnNo,
-        nin: ninNo,
-      };
-      // console.log("here");
-      const isUpdated = await User.updateOne(
+    if (!ninNo && !bvnNo) {
+      return res.status(400).json({ msg: "Please provide Bvn/Nin" });
+    }
+    if (ninNo && !/^\d{11}$/.test(ninNo)) {
+      return res.status(400).json({ msg: "NIN must be exactly 11 digits" });
+    }
+    if (bvnNo && !/^\d{11}$/.test(bvnNo)) {
+      return res.status(400).json({ msg: "BVN must be exactly 11 digits" });
+    }
+
+    const {
+      MONNIFY_API_URL,
+      MONNIFY_API_KEY,
+      MONNIFY_API_SECRET,
+      MONNIFY_API_CONTRACT_CODE,
+    } = process.env;
+    if (
+      !MONNIFY_API_URL ||
+      !MONNIFY_API_KEY ||
+      !MONNIFY_API_SECRET ||
+      !MONNIFY_API_CONTRACT_CODE
+    ) {
+      console.error("KYC: MONNIFY_* environment variables are missing");
+      return res
+        .status(500)
+        .json({ msg: "KYC service is not available right now. Contact admin" });
+    }
+
+    const user = await User.findOne({ _id: userId });
+    if (!user) return res.status(404).json({ msg: "User not found" });
+    const { userName, email, bvn, nin, accountNumbers } = user;
+    if (bvn || nin)
+      return res.status(400).json({ msg: "You have done your KYC before" });
+
+    const saveKyc = async (fullName) => {
+      await User.updateOne(
         { _id: userId },
-        { $set: { ...kycDetails } }
+        { $set: { fullName, bvn: bvnNo, nin: ninNo } }
       );
-      console.log({ isUpdated });
-      return res.status(200).json({ msg: response.msg });
-    }
-  }
-  const ApiKeyEncoded = Buffer.from(
-    MONNIFY_API_KEY + ":" + MONNIFY_API_SECRET
-  ).toString("base64");
-  const response = await axios.post(
-    `${MONNIFY_API_URL}/api/v1/auth/login`,
-    {},
-    {
-      headers: {
-        Authorization: `Basic ${ApiKeyEncoded}`,
-      },
-    }
-  );
-  const {
-    responseBody: { accessToken },
-  } = response.data;
-  console.log({ userName });
-  const updateKYC = async (reference) => {
-    let result = {};
-    try {
-      const accountDetails = await axios.put(
-        `${MONNIFY_API_URL}/api/v1/bank-transfer/reserved-accounts/${reference}/kyc-info`,
-        { ...req.body },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      const { accountName } = accountDetails.data.responseBody;
-
-      if (accountDetails.status == 200) {
-        result.status = true;
-        result.msg = accountName;
-      }
-    } catch (error) {
-      console.log({ statusCode: error.response ? error.response.status : undefined, message: error.message });
-      result.status = false;
-      result.msg = (error.response && error.response.data && error.response.data.responseMessage) || "KYC update failed";
-      result.statusCode = error.response ? error.response.status : undefined;
-    }
-    console.log({ reference, result });
-    return result;
-  };
-  let responseObject = await updateKYC(email);
-
-  if (!responseObject.status && responseObject.statusCode != 422) {
-    console.log("first");
-    //422 means invalid id no provided
-    responseObject = await updateKYC(userName);
-  }
-  if (responseObject.status) {
-    const kycDetails = {
-      fullName: responseObject.msg,
-      bvn: bvnNo,
-      nin: ninNo,
     };
-    // console.log("here");
-    const isUpdated = await User.updateOne(
-      { _id: userId },
-      { $set: { ...kycDetails } }
-    );
-    console.log({ isUpdated });
+
+    // user has no reserved account yet -> create one with the KYC details
+    const createReservedAccount = async () => {
+      const response = await generateAcc({
+        userName,
+        email,
+        bvn: bvnNo || undefined,
+        nin: ninNo || undefined,
+      });
+      if (!response.status) {
+        return res.status(400).json({ msg: response.msg });
+      }
+      await saveKyc(response.msg);
+      return res.status(200).json({ msg: response.msg });
+    };
+
+    if (!accountNumbers || accountNumbers.length < 1) {
+      return await createReservedAccount();
+    }
+
+    // login to Monnify
+    let accessToken;
+    try {
+      const ApiKeyEncoded = Buffer.from(
+        MONNIFY_API_KEY + ":" + MONNIFY_API_SECRET
+      ).toString("base64");
+      const login = await axios.post(
+        `${MONNIFY_API_URL}/api/v1/auth/login`,
+        {},
+        { headers: { Authorization: `Basic ${ApiKeyEncoded}` } }
+      );
+      accessToken = login.data.responseBody.accessToken;
+    } catch (error) {
+      console.log("KYC login failed", error.response?.data || error.message);
+      return res
+        .status(502)
+        .json({ msg: "Could not reach the KYC provider. Try again later" });
+    }
+
+    const kycBody = {};
+    if (bvnNo) kycBody.bvn = bvnNo;
+    if (ninNo) kycBody.nin = ninNo;
+
+    const updateKYC = async (reference) => {
+      try {
+        const r = await axios.put(
+          `${MONNIFY_API_URL}/api/v1/bank-transfer/reserved-accounts/${encodeURIComponent(
+            reference
+          )}/kyc-info`,
+          kycBody,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        return { status: true, msg: r.data.responseBody.accountName };
+      } catch (error) {
+        const statusCode = error.response ? error.response.status : undefined;
+        console.log({ reference, statusCode, data: error.response?.data });
+        return {
+          status: false,
+          statusCode,
+          msg:
+            error.response?.data?.responseMessage ||
+            "KYC update failed. Check your details and try again",
+        };
+      }
+    };
+
+    let result = await updateKYC(email);
+    // 422 = invalid BVN/NIN, so don't retry with the other reference
+    if (!result.status && result.statusCode !== 422) {
+      result = await updateKYC(userName);
+    }
+
+    if (result.status) {
+      await saveKyc(result.msg);
+      return res
+        .status(200)
+        .json({ msg: `${result.msg} has been added as your full name` });
+    }
+
+    // no Monnify reserved account exists for this user -> create one
+    if (result.statusCode === 404) {
+      return await createReservedAccount();
+    }
+
     return res
-      .status(200)
-      .json({ msg: `${kycDetails.fullName} has been added as your full name` });
-  } else {
-    return res.status(500).json({ msg: responseObject.msg });
+      .status(result.statusCode === 422 ? 400 : 500)
+      .json({ msg: result.msg });
+  } catch (error) {
+    console.log("updateKyc error", error);
+    return res
+      .status(500)
+      .json({ msg: "Something went wrong while updating KYC" });
   }
 };
 module.exports = {
